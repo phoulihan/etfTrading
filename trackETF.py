@@ -21,7 +21,7 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.cross_validation import train_test_split
 from sklearn import linear_model, datasets
 
-thePath = 'C:/Users/xilin/Google Drive/iViewPrep/'
+thePath = 'YOUR PATH'
 
 mongo = MongoClient('127.0.0.1', 27017)
 mongoDb = mongo['priceData']
@@ -141,7 +141,4 @@ temp = np.where(np.asarray(thePerf) < 0)
 print("Sortino: " + str(np.mean(thePerf)/np.std(np.asarray(thePerf)[temp])))
 
 finalData.to_csv(thePath + "finalData.csv",index=False)
-
-#http://www.analyticsvidhya.com/blog/2015/09/naive-bayes-explained/
 #http://statsmodels.sourceforge.net/devel/generated/statsmodels.regression.linear_model.RegressionResults.html
-#http://stackoverflow.com/questions/37508158/how-to-extract-a-particular-value-from-the-ols-summary-in-pandas
