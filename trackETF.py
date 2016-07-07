@@ -3,7 +3,6 @@
 Created on Thu Jun 30 10:46:58 2016
 
 @author: Patrick Houlihan
-prepared for HRG to illustrate a simple alpha rich ETF strategy
 """
 import numpy as np
 import pandas as pd
@@ -21,7 +20,7 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.cross_validation import train_test_split
 from sklearn import linear_model, datasets
 
-thePath = 'C:/Users/xilin/Google Drive/iViewPrep/'
+thePath = 'YOUR PATH'
 
 mongo = MongoClient('127.0.0.1', 27017)
 mongoDb = mongo['priceData']
