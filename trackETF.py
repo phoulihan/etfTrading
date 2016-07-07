@@ -140,7 +140,3 @@ temp = np.where(np.asarray(thePerf) < 0)
 print("Sortino: " + str(np.mean(thePerf)/np.std(np.asarray(thePerf)[temp])))
 
 finalData.to_csv(thePath + "finalData.csv",index=False)
-
-#http://www.analyticsvidhya.com/blog/2015/09/naive-bayes-explained/
-#http://statsmodels.sourceforge.net/devel/generated/statsmodels.regression.linear_model.RegressionResults.html
-#http://stackoverflow.com/questions/37508158/how-to-extract-a-particular-value-from-the-ols-summary-in-pandas
