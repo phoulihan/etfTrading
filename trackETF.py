@@ -141,4 +141,3 @@ temp = np.where(np.asarray(thePerf) < 0)
 print("Sortino: " + str(np.mean(thePerf)/np.std(np.asarray(thePerf)[temp])))
 
 finalData.to_csv(thePath + "finalData.csv",index=False)
-#http://statsmodels.sourceforge.net/devel/generated/statsmodels.regression.linear_model.RegressionResults.html
