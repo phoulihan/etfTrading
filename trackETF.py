@@ -3,7 +3,6 @@
 Created on Thu Jun 30 10:46:58 2016
 
 @author: Patrick Houlihan
-prepared for HRG to illustrate a simple alpha rich ETF strategy
 """
 import numpy as np
 import pandas as pd
