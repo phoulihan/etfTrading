@@ -4,10 +4,12 @@ Created on Sun Jul 10 08:55:19 2016
 
 @author: xilin
 """
+import math
 import pandas as pd
 import datetime
 import numpy as np
-import pandas.io.data as web
+import pandas_datareader.data as web
+from pandas_datareader import data, wb
 from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
 from matplotlib import style
@@ -27,6 +29,9 @@ import imp
 from sklearn.naive_bayes import GaussianNB
 from pymongo import MongoClient
 import collections, re
+import nltk
+from sklearn import cross_validation
+from sklearn.svm import SVC
 
 mongo = MongoClient('127.0.0.1', 27017)
 mongoDb = mongo['priceData']
@@ -35,11 +40,11 @@ mongoColl = mongoDb['crspData']
 style.use('ggplot')
 
 start = datetime.datetime(2010,1,1)
-end = datetime.datetime(2015,1,1)
+end = datetime.datetime(2016,7,10)
 
 statSig = .05
 postThresh = .8
-theWindow = 30
+theWindow = 10
 rollRet = float(0)
 
 theTickers = np.sort(np.array(mongoColl.distinct('ticker')))
@@ -72,7 +77,6 @@ for i in range(0,numTickers):
             tempData['rollMean'] = tempData['ret'].rolling(window=theWindow).mean()
             tempData['rollMeanBase'] = tempData['retBase'].rolling(window=theWindow).mean()
             tempData['rollCor'] = pd.rolling_corr(tempData['retBase'],tempData['ret'],theWindow) #rollCorrelation
-            
             tempData = tempData.dropna()
             
             testLen = int(round(testSize*theLen,0))
@@ -80,6 +84,8 @@ for i in range(0,numTickers):
             try:
                 y = tempData['ret'][1:theLen] #next day assset return
                 X = tempData[['retBase','theDiff','rollCor','rollMeanBase','rollMean']][0:theLen-1] #event day features
+                #y = tempData['ret'][1:theLen] #same day assset return
+                #X = tempData[['retBase','theDiff','rollCor','rollMeanBase','rollMean']][1:theLen] #same day features
             
                 trainY = y[0:(trainLen-1)]
                 testY = y[trainLen:theLen]
@@ -88,8 +94,15 @@ for i in range(0,numTickers):
                 testX = X[trainLen:theLen]
             
                 model = RandomForestClassifier(n_estimators=25,random_state=42)
-                model.fit(trainX,np.sign(trainY.astype(float)))
+                #model = AdaBoostClassifier(DecisionTreeClassifier(max_depth=1),n_estimators=300,learning_rate=1,algorithm="SAMME")
+                #model = linear_model.LogisticRegression(C=1e5)
+                #model = SVC(kernel='rbf', class_weight=None)
+                #model = GaussianNB()
+
+                model.fit(trainX,np.sign(trainY))
+
                 postProbs = model.predict_proba(testX)
+
                 theClasses = model.classes_ #[-1.  0.  1.]
                 neg = int(np.where(theClasses == -1.0)[0])
                 pos = int(np.where(theClasses == 1.0)[0])
@@ -97,18 +110,21 @@ for i in range(0,numTickers):
                 theLongs = np.where(postProbs[:,pos] >= postThresh)[0] #LONG POSITIONS
                 theShorts = np.where(postProbs[:,neg] >= postThresh)[0] #SHORT POSITIONS
                 
-                corLong = np.where(np.sign(trainY[theLongs]) == 1)[0]
-                incLong = np.where(np.sign(trainY[theLongs]) == -1)[0]
+                numPos = len(theLongs)
+                numNeg = len(theShorts)
+                
+                corLong = np.where(np.sign(testY[theLongs]) == 1)[0]
+                incLong = np.where(np.sign(testY[theLongs]) == -1)[0]
                 longRet = float(np.sum(testY[corLong])) - float(np.sum(testY[incLong])) 
                 
-                corShort = np.where(np.sign(trainY[theShorts]) == -11)[0]
-                incShort = np.where(np.sign(trainY[theShorts]) == 1)[0]
+                corShort = np.where(np.sign(testY[theShorts]) == -1)[0]
+                incShort = np.where(np.sign(testY[theShorts]) == 1)[0]
                 shortRet = -float(np.sum(testY[corShort])) + float(np.sum(testY[incShort])) 
                 
-                theRet = float(longRet) + float(shortRet)
-                rollRet = float(rollRet) + float(theRet)
+                theRet = round(float(longRet) + float(shortRet),8)
+                rollRet = round(float(rollRet) + float(theRet),8)
                 thePerf.append(theRet)
-                print(theTickers[i] + " Return: " + str(theRet) + " Rolling Return: " + str(rollRet))
+                print(theTickers[i] + " Return: " + str(theRet) + " Rolling Return: " + str(rollRet) + " Short Cnt: " + str(numNeg) + " Long Cnt: " + str(numPos))
             except Exception, (e):
                 print(theTickers[i])         
             pass
@@ -116,7 +132,7 @@ for i in range(0,numTickers):
         print(theTickers[i])         
     pass      
 
-print("Sharpe: " + str(np.mean(thePerf)/np.std(thePerf)))
+print("Sharpe: " + str(((np.mean(thePerf)/np.std(thePerf))*math.sqrt(252))))
 temp = np.where(np.asarray(thePerf) < 0)
-print("Sortino: " + str(np.mean(thePerf)/np.std(np.asarray(thePerf)[temp])))
+print("Sortino: " + str(np.mean(thePerf)/np.std(np.asarray(thePerf)[temp])*math.sqrt(252)))
 #http://pandas.pydata.org/pandas-docs/stable/remote_data.html
