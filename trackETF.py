@@ -8,6 +8,7 @@ import pandas as pd
 import datetime
 import numpy as np
 import pandas.io.data as web
+#from pandas_datareader import web
 from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
 from matplotlib import style
@@ -40,6 +41,7 @@ end = datetime.datetime(2015,1,1)
 statSig = .05
 postThresh = .8
 theWindow = 30
+rollRet = float(0)
 
 theTickers = np.sort(np.array(mongoColl.distinct('ticker')))
 theTickers = [s.strip('$') for s in theTickers]
@@ -66,12 +68,16 @@ for i in range(0,numTickers):
         tempData['theDiff'] = tempData['retBase'] - tempData['ret']
         
         theCor = pearsonr(tempData['retBase'],tempData['ret'])
-        rollRet = float(0)
         
         if(theCor[1] <= statSig):
+            tempData['rollMean'] = tempData['ret'].rolling(window=theWindow).mean()
+            tempData['rollMeanBase'] = tempData['retBase'].rolling(window=theWindow).mean()
+            #print(tempData['rollMean'])
+            #print(test)
+            #tes = tempData[['retBase','ret']].rolling(window=theWindow, win_type='triang').corr()
             tempData['rollCor'] = pd.rolling_corr(tempData['retBase'],tempData['ret'],theWindow) #rollCorrelation
-            tempData['rollMeanBase'] = pd.rolling_mean(tempData['retBase'],theWindow) #rollCorrelation
-            tempData['rollMean'] = pd.rolling_mean(tempData['ret'],theWindow) #rollCorrelation
+            #tempData['rollMeanBase'] = pd.rolling_mean(tempData['retBase'],theWindow) #rollCorrelation
+            #tempData['rollMean'] = pd.rolling_mean(tempData['ret'],theWindow) #rollCorrelation
             
             tempData = tempData.dropna()
             
@@ -79,8 +85,8 @@ for i in range(0,numTickers):
             trainLen = int(theLen  - testLen)
             try:
                 y = tempData['ret'][1:theLen] #next day assset return
+                #X = tempData[['retBase','theDiff','rollMeanBase','rollMean']][0:theLen-1] #event day features
                 X = tempData[['retBase','theDiff','rollCor','rollMeanBase','rollMean']][0:theLen-1] #event day features
-                #X = tempData[['retBase','theDiff','rollCor']][0:theLen-1] #event day features
             
                 trainY = y[0:(trainLen-1)]
                 testY = y[trainLen:theLen]
@@ -95,21 +101,21 @@ for i in range(0,numTickers):
                 neg = int(np.where(theClasses == -1.0)[0])
                 pos = int(np.where(theClasses == 1.0)[0])
             
-                theLongs = postProbs[:,pos][postProbs[:,pos] >= postThresh] #LONG POSITIONS
-                theShorts = postProbs[:,neg][postProbs[:,neg] >= postThresh] #SHORT POSITIONS
+                theLongs = np.where(postProbs[:,pos] >= postThresh)[0] #LONG POSITIONS
+                theShorts = np.where(postProbs[:,neg] >= postThresh)[0] #SHORT POSITIONS
                 
-                corLong = np.sign(theLongs) == 1
-                incLong = np.sign(theLongs) != 1
+                corLong = np.where(np.sign(trainY[theLongs]) == 1)[0]
+                incLong = np.where(np.sign(trainY[theLongs]) == -1)[0]
                 longRet = float(np.sum(testY[corLong])) - float(np.sum(testY[incLong])) 
                 
-                corShort = np.sign(theShorts) == -1
-                incShort = np.sign(theShorts) != -1
+                corShort = np.where(np.sign(trainY[theShorts]) == -11)[0]
+                incShort = np.where(np.sign(trainY[theShorts]) == 1)[0]
                 shortRet = -float(np.sum(testY[corShort])) + float(np.sum(testY[incShort])) 
                 
                 theRet = float(longRet) + float(shortRet)
                 rollRet = float(rollRet) + float(theRet)
                 thePerf.append(theRet)
-                print("Overall Return: " + str(theRet) + " Rolling Return: " + str(rollRet))
+                print(theTickers[i] + " Return: " + str(theRet) + " Rolling Return: " + str(rollRet))
             except Exception, (e):
                 print(theTickers[i])         
             pass
