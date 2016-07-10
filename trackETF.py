@@ -50,8 +50,7 @@ tempBase['retBase'] = np.log(tempBase['Adj Close'].astype(float)) - np.log(tempB
 tempBase.reindex()
 
 thePerf = list()
-for i in range(0,10):
-    print(theTickers[i])
+for i in range(0,numTickers):
     try:
         temp = web.DataReader(theTickers[i],"yahoo",start,end)
         temp['ret'] = np.log(temp['Adj Close'].astype(float)) - np.log(temp['Adj Close'].astype(float).shift(1))
@@ -71,6 +70,8 @@ for i in range(0,10):
         
         if(theCor[1] <= statSig):
             tempData['rollCor'] = pd.rolling_corr(tempData['retBase'],tempData['ret'],theWindow) #rollCorrelation
+            tempData['rollMeanBase'] = pd.rolling_mean(tempData['retBase'],theWindow) #rollCorrelation
+            tempData['rollMean'] = pd.rolling_mean(tempData['ret'],theWindow) #rollCorrelation
             
             tempData = tempData.dropna()
             
@@ -78,7 +79,8 @@ for i in range(0,10):
             trainLen = int(theLen  - testLen)
             try:
                 y = tempData['ret'][1:theLen] #next day assset return
-                X = tempData[['retBase','theDiff','rollCor']][0:theLen-1] #event day features
+                X = tempData[['retBase','theDiff','rollCor','rollMeanBase','rollMean']][0:theLen-1] #event day features
+                #X = tempData[['retBase','theDiff','rollCor']][0:theLen-1] #event day features
             
                 trainY = y[0:(trainLen-1)]
                 testY = y[trainLen:theLen]
@@ -107,12 +109,12 @@ for i in range(0,10):
                 theRet = float(longRet) + float(shortRet)
                 rollRet = float(rollRet) + float(theRet)
                 thePerf.append(theRet)
-                print("Overall Return: " + str(theRet))
+                print("Overall Return: " + str(theRet) + " Rolling Return: " + str(rollRet))
             except Exception, (e):
-                print(e)         
+                print(theTickers[i])         
             pass
     except Exception, (e):
-        print(e)         
+        print(theTickers[i])         
     pass      
 
 print("Sharpe: " + str(np.mean(thePerf)/np.std(thePerf)))
