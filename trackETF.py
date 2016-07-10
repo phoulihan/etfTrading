@@ -8,7 +8,6 @@ import pandas as pd
 import datetime
 import numpy as np
 import pandas.io.data as web
-#from pandas_datareader import web
 from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
 from matplotlib import style
@@ -47,7 +46,7 @@ theTickers = np.sort(np.array(mongoColl.distinct('ticker')))
 theTickers = [s.strip('$') for s in theTickers]
 numTickers = len(theTickers)
 
-tempBase = web.DataReader("XOM","yahoo",start,end)
+tempBase = web.DataReader("GLD","yahoo",start,end)
 tempBase['retBase'] = np.log(tempBase['Adj Close'].astype(float)) - np.log(tempBase['Adj Close'].astype(float).shift(1))
 tempBase.reindex()
 
@@ -72,12 +71,7 @@ for i in range(0,numTickers):
         if(theCor[1] <= statSig):
             tempData['rollMean'] = tempData['ret'].rolling(window=theWindow).mean()
             tempData['rollMeanBase'] = tempData['retBase'].rolling(window=theWindow).mean()
-            #print(tempData['rollMean'])
-            #print(test)
-            #tes = tempData[['retBase','ret']].rolling(window=theWindow, win_type='triang').corr()
             tempData['rollCor'] = pd.rolling_corr(tempData['retBase'],tempData['ret'],theWindow) #rollCorrelation
-            #tempData['rollMeanBase'] = pd.rolling_mean(tempData['retBase'],theWindow) #rollCorrelation
-            #tempData['rollMean'] = pd.rolling_mean(tempData['ret'],theWindow) #rollCorrelation
             
             tempData = tempData.dropna()
             
@@ -85,7 +79,6 @@ for i in range(0,numTickers):
             trainLen = int(theLen  - testLen)
             try:
                 y = tempData['ret'][1:theLen] #next day assset return
-                #X = tempData[['retBase','theDiff','rollMeanBase','rollMean']][0:theLen-1] #event day features
                 X = tempData[['retBase','theDiff','rollCor','rollMeanBase','rollMean']][0:theLen-1] #event day features
             
                 trainY = y[0:(trainLen-1)]
