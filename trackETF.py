@@ -9,6 +9,7 @@ import pandas as pd
 import datetime
 import numpy as np
 import pandas_datareader.data as web
+import statsmodels.tsa.stattools as ts
 from pandas_datareader import data, wb
 from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
@@ -44,27 +45,30 @@ thePath = 'C:/Users/xilin/gitHubCode/etfTrading/'
 start = datetime.datetime(2000,1,1)
 end = datetime.datetime(2016,7,10)
 
+#variables
 statSig = .05
 postThresh = .8
-corThresh = .25
+corThresh = .15
 theWindow = 10
 rollRet = float(0)
 totalLong = 0
 totalShort = 0
 rollLongRight = 0
 rollShortRight = 0
+testSize = .10
 
 theTickers = np.sort(np.array(mongoColl.distinct('ticker')))
 theTickers = [s.strip('$') for s in theTickers]
 numTickers = len(theTickers)
 
-baseTicker = "GLD"
+baseTicker = "TIP"
 tempBase = web.DataReader(baseTicker,"yahoo",start,end)
 tempBase['retBase'] = np.log(tempBase['Adj Close'].astype(float)) - np.log(tempBase['Adj Close'].astype(float).shift(1))
 #tempBase['retBase'] = np.log(tempBase['Close'].astype(float)) - np.log(tempBase['Open'].astype(float))
 tempBase = tempBase[['retBase','Close']]
 tempBase.columns = ['retBase','closeBase']
 tempBase.reindex()
+tempBase = tempBase.dropna()
 
 thePerf = list()
 finalData = pd.DataFrame()
@@ -83,11 +87,14 @@ for i in range(0,numTickers):
         tempData = tempData[['retBase','ret','retClose','diff']]
         
         theLen = len(tempData)
-        testSize = .10
-
-        theCor = pearsonr(tempData['retBase'],tempData['retClose'])
-   
-        if(theCor[1] <= statSig and (theCor[0] >= corThresh or theCor[0] <= -corThresh)):
+        
+        #theCor = pearsonr(tempData['retBase'],tempData['retClose'])        
+        
+        gCause = ts.grangercausalitytests(tempData[['retClose','retBase']],1,verbose=False) #second position --> first position
+        gCause = gCause[1][0]['params_ftest'][1]
+        
+        #if(theCor[1] <= statSig and (theCor[0] >= corThresh or theCor[0] <= -corThresh)):
+        if(gCause <= statSig):
             tempData['rollMean'] = tempData['ret'].rolling(window=theWindow).mean()
             tempData['rollMeanBase'] = tempData['retBase'].rolling(window=theWindow).mean()
             tempData['rollCor'] = pd.rolling_corr(tempData['retBase'],tempData['ret'],theWindow) #rollCorrelation
