@@ -100,17 +100,13 @@ for i in range(0,numTickers):
             tempData = tempData.dropna()
             
             trainLen = int(round(testSize*theLen,0))
-            print(trainLen)
             testLen = int(theLen  - trainLen)
-            print(testLen)
             try:
                 y = tempData['ret'][1:theLen] #next day assset return
                 X = tempData[['retBase','rollCor','rollMeanBase','rollMean','diff']][0:theLen-1] #event day features
                 
                 trainY = y[0:trainLen]
                 testY = y[trainLen:theLen]
-                print(trainY)
-                print(testY)
                 
                 trainX = X[0:trainLen]
                 testX = X[trainLen:theLen]
