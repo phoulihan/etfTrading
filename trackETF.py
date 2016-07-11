@@ -64,7 +64,7 @@ tempBase.reindex()
 
 thePerf = list()
 finalData = pd.DataFrame()
-for i in range(0,20):
+for i in range(0,numTickers):
     try:
         temp = web.DataReader(theTickers[i],"yahoo",start,end)
         temp['ret'] = np.log(temp['Adj Close'].astype(float)) - np.log(temp['Adj Close'].astype(float).shift(1))
