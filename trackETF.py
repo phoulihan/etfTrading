@@ -46,10 +46,10 @@ start = datetime.datetime(2000,1,1)
 end = datetime.datetime(2016,7,10)
 
 #variables
-statSig = .05
-postThresh = .8
-corThresh = .15
-theWindow = 10
+statSig = .05 #obvious
+postThresh = .8 #posterior probability threshold
+corThresh = .15 #arbitrary p-vaue for pearson correl
+theWindow = 10 #arbitrary rolling window
 rollRet = float(0)
 totalLong = 0
 totalShort = 0
@@ -155,8 +155,8 @@ for i in range(0,numTickers):
                 tempStr = pd.DataFrame({'ticker': [theTickers[i]],'theRet': [theRet],'rollret': [rollRet],'RollShortTrd': [totalShort],'RollLongTrd': [totalLong],
                 'RollLongRight': [rollLongRight],'RollShortRight': [rollShortRight],'startTrainDate': [startTrainDate],'startTestDate': [startTestDate]})
                 finalData = finalData.append(tempStr)
-                print(theTickers[i] + " Return: " + str(theRet) + " Rolling Return: " + str(rollRet) + " Short Cnt: " + str(numNeg) + " Long Cnt: " 
-                + str(numPos) + " Start Train: " + startTrainDate + " Start Test: " + startTestDate)
+                print(theTickers[i] + " Ret: " + str(theRet) + " Roll Ret: " + str(rollRet) + " Short Cnt: " + str(numNeg) + " Long Cnt: " 
+                + str(numPos) + " Strt Tr: " + startTrainDate + " Strt Test: " + startTestDate + " sRollCnt: " + str(totalShort) + " lRollCnt: " +  str(totalLong))
             except Exception, (e):
                 print(theTickers[i])         
             pass
