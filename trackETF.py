@@ -41,11 +41,12 @@ style.use('ggplot')
 
 thePath = 'C:/Users/xilin/gitHubCode/etfTrading/'
 
-start = datetime.datetime(2010,1,1)
+start = datetime.datetime(2000,1,1)
 end = datetime.datetime(2016,7,10)
 
 statSig = .05
 postThresh = .8
+corThresh = .25
 theWindow = 10
 rollRet = float(0)
 totalLong = 0
@@ -60,28 +61,33 @@ numTickers = len(theTickers)
 baseTicker = "GLD"
 tempBase = web.DataReader(baseTicker,"yahoo",start,end)
 tempBase['retBase'] = np.log(tempBase['Adj Close'].astype(float)) - np.log(tempBase['Adj Close'].astype(float).shift(1))
+#tempBase['retBase'] = np.log(tempBase['Close'].astype(float)) - np.log(tempBase['Open'].astype(float))
+tempBase = tempBase[['retBase','Close']]
+tempBase.columns = ['retBase','closeBase']
 tempBase.reindex()
 
 thePerf = list()
 finalData = pd.DataFrame()
 for i in range(0,numTickers):
     try:
-        temp = web.DataReader(theTickers[i],"yahoo",start,end)
-        temp['ret'] = np.log(temp['Adj Close'].astype(float)) - np.log(temp['Adj Close'].astype(float).shift(1))
-        temp.reindex()
-        
-        tempData = pd.merge(tempBase,temp,how='outer', left_index=True, right_index=True)
-        tempData = tempData[['retBase','ret']]
-        
+        tempData = web.DataReader(theTickers[i],"yahoo",start,end)
+        tempData['retClose'] = np.log(tempData['Adj Close'].astype(float)) - np.log(tempData['Adj Close'].astype(float).shift(1))
+        tempData['ret'] = np.log(tempData['Close'].astype(float)) - np.log(tempData['Open'].astype(float))
         tempData = tempData.dropna()
+        tempData = tempData[['retClose','ret','Close']]
+        tempData.reindex()
+        tempData = pd.merge(tempBase,tempData,how='outer', left_index=True, right_index=True)
+        tempData['diff'] = tempData['closeBase'] - tempData['Close']
+        tempData = tempData.dropna()
+
+        tempData = tempData[['retBase','ret','retClose','diff']]
+        
         theLen = len(tempData)
         testSize = .10
-        
-        tempData['theDiff'] = tempData['retBase'] - tempData['ret']
-        
-        theCor = pearsonr(tempData['retBase'],tempData['ret'])
-        
-        if(theCor[1] <= statSig):
+
+        theCor = pearsonr(tempData['retBase'],tempData['retClose'])
+   
+        if(theCor[1] <= statSig and (theCor[0] >= corThresh or theCor[0] <= -corThresh)):
             tempData['rollMean'] = tempData['ret'].rolling(window=theWindow).mean()
             tempData['rollMeanBase'] = tempData['retBase'].rolling(window=theWindow).mean()
             tempData['rollCor'] = pd.rolling_corr(tempData['retBase'],tempData['ret'],theWindow) #rollCorrelation
@@ -91,7 +97,7 @@ for i in range(0,numTickers):
             trainLen = int(theLen  - testLen)
             try:
                 y = tempData['ret'][1:theLen] #next day assset return
-                X = tempData[['retBase','theDiff','rollCor','rollMeanBase','rollMean']][0:theLen-1] #event day features
+                X = tempData[['retBase','rollCor','rollMeanBase','rollMean','diff']][0:theLen-1] #event day features
             
                 trainY = y[0:(trainLen-1)]
                 testY = y[trainLen:theLen]
@@ -122,16 +128,14 @@ for i in range(0,numTickers):
                 totalShort = totalShort + numNeg
                 
                 corLong = np.where(np.sign(testY[theLongs]) == 1)[0]
-                incLong = np.where(np.sign(testY[theLongs]) == -1)[0]
-                longRet = float(np.sum(testY[corLong])) - float(np.sum(testY[incLong])) 
+                longRet = np.sum(testY[theLongs])
                 rollLongRight = rollLongRight + len(corLong)
                 
-                corShort = np.where(np.sign(testY[theShorts]) == -1)[0]
-                incShort = np.where(np.sign(testY[theShorts]) == 1)[0]
-                shortRet = -float(np.sum(testY[corShort])) + float(np.sum(testY[incShort])) 
+                corShort = np.where(np.sign(testY[theShorts]) == -1)[0] 
+                shortRet = np.sum(testY[theShorts])
                 rollShortRight = rollShortRight + len(corShort)
                 
-                theRet = round(float(longRet) + float(shortRet),8)
+                theRet = round(float(longRet) - float(shortRet),8)
                 rollRet = round(float(rollRet) + float(theRet),8)
                 thePerf.append(theRet)
                 tempStr = pd.DataFrame({'ticker': [theTickers[i]],'theRet': [theRet],'rollret': [rollRet],'RollShortTrd': [totalShort],'RollLongTrd': [totalLong],'RollLongRight': [rollLongRight],'RollShortRight': [rollShortRight]})
@@ -148,4 +152,3 @@ finalData.to_csv(thePath + baseTicker + "_finalData.csv",index=False)
 print("Sharpe: " + str(((np.mean(thePerf)/np.std(thePerf))*math.sqrt(252))))
 temp = np.where(np.asarray(thePerf) < 0)
 print("Sortino: " + str(np.mean(thePerf)/np.std(np.asarray(thePerf)[temp])*math.sqrt(252)))
-#http://pandas.pydata.org/pandas-docs/stable/remote_data.html
