@@ -47,7 +47,7 @@ end = datetime.datetime(2016,7,10)
 
 #variables
 statSig = .05 #obvious
-postThresh = .8 #posterior probability threshold
+postThresh = .7 #posterior probability threshold
 corThresh = .15 #arbitrary p-vaue for pearson correl
 theWindow = 10 #arbitrary rolling window
 rollRet = float(0)
@@ -61,7 +61,7 @@ theTickers = np.sort(np.array(mongoColl.distinct('ticker')))
 theTickers = [s.strip('$') for s in theTickers]
 numTickers = len(theTickers)
 
-baseTicker = "TIP"
+baseTicker = "^TNX"
 tempBase = web.DataReader(baseTicker,"yahoo",start,end)
 tempBase['retBase'] = np.log(tempBase['Adj Close'].astype(float)) - np.log(tempBase['Adj Close'].astype(float).shift(1))
 #tempBase['retBase'] = np.log(tempBase['Close'].astype(float)) - np.log(tempBase['Open'].astype(float))
@@ -72,7 +72,8 @@ tempBase = tempBase.dropna()
 
 thePerf = list()
 finalData = pd.DataFrame()
-for i in range(0,numTickers):
+todayData = pd.DataFrame()
+for i in range(0,100):
     try:
         tempData = web.DataReader(theTickers[i],"yahoo",start,end)
         tempData['retClose'] = np.log(tempData['Adj Close'].astype(float)) - np.log(tempData['Adj Close'].astype(float).shift(1))
@@ -86,30 +87,30 @@ for i in range(0,numTickers):
 
         tempData = tempData[['retBase','ret','retClose','diff']]
         
-        theLen = len(tempData)
-        
-        #theCor = pearsonr(tempData['retBase'],tempData['retClose'])        
+        theCor = pearsonr(tempData['retBase'],tempData['retClose'])        
         
         gCause = ts.grangercausalitytests(tempData[['retClose','retBase']],1,verbose=False)[1][0]['params_ftest'][1] #second position --> first position
 
-        #if(theCor[1] <= statSig and (theCor[0] >= corThresh or theCor[0] <= -corThresh)):
+        #if(theCor[1] <= statSig and (theCor[0] >= corThresh or theCor[0] <= -corThresh) and gCause <= statSig):
         if(gCause <= statSig):
             tempData['rollMean'] = tempData['ret'].rolling(window=theWindow).mean()
             tempData['rollMeanBase'] = tempData['retBase'].rolling(window=theWindow).mean()
             tempData['rollCor'] = pd.rolling_corr(tempData['retBase'],tempData['ret'],theWindow) #rollCorrelation
             tempData = tempData.dropna()
             
+            theLen = len(tempData)
+            
             trainLen = int(round(testSize*theLen,0))
             testLen = int(theLen  - trainLen)
             try:
-                y = tempData['ret'][1:theLen] #next day assset return
-                X = tempData[['retBase','rollCor','rollMeanBase','rollMean','diff']][0:theLen-1] #event day features
+                y = tempData['ret']#[0:theLen-2] #next day assset return
+                X = tempData[['retBase','rollCor','rollMeanBase','rollMean','diff']]#[1:theLen-1] #event day features
                 
-                trainY = y[0:trainLen]
-                testY = y[trainLen:theLen]
-                
-                trainX = X[0:trainLen]
-                testX = X[trainLen:theLen]
+                trainY = y[1:trainLen-1]
+                testY = y[trainLen:theLen-1]
+
+                trainX = X[0:trainLen-2]
+                testX = X[trainLen-1:theLen-2]
             
                 tDate = list(trainY.index.values)
                 startTrainDate = str(tDate[0])[:10]
@@ -129,10 +130,21 @@ for i in range(0,numTickers):
 
                 postProbs = model.predict_proba(testX)
 
+                todayPostProbs = model.predict_proba(X[theLen-1:theLen])
+                
                 theClasses = model.classes_ #[-1.  0.  1.]
                 neg = int(np.where(theClasses == -1.0)[0])
                 pos = int(np.where(theClasses == 1.0)[0])
-            
+
+                if(todayPostProbs[0][pos] >= postThresh):
+                    tempStr = pd.DataFrame({'ticker': [theTickers[i]],' Position': ['Long'],' Confidence': [todayPostProbs[0][pos]]})
+                    todayData = todayData.append(tempStr)
+                    print("GO LONG ON: " + theTickers[i] + " Confidence: " + str(todayPostProbs[0][pos]))
+                if(todayPostProbs[0][neg] >= postThresh):
+                    tempStr = pd.DataFrame({'ticker': [theTickers[i]],' Position': ['Short'],' Confidence': [todayPostProbs[0][neg]]})
+                    todayData = todayData.append(tempStr)
+                    print("GO SHORT ON: " + theTickers[i] + " Confidence: " + str(todayPostProbs[0][neg])) 
+
                 theLongs = np.where(postProbs[:,pos] >= postThresh)[0] #LONG POSITIONS
                 theShorts = np.where(postProbs[:,neg] >= postThresh)[0] #SHORT POSITIONS
                 
@@ -155,8 +167,8 @@ for i in range(0,numTickers):
                 tempStr = pd.DataFrame({'ticker': [theTickers[i]],'theRet': [theRet],'rollret': [rollRet],'RollShortTrd': [totalShort],'RollLongTrd': [totalLong],
                 'RollLongRight': [rollLongRight],'RollShortRight': [rollShortRight],'startTrainDate': [startTrainDate],'startTestDate': [startTestDate]})
                 finalData = finalData.append(tempStr)
-                print(theTickers[i] + " Ret: " + str(theRet) + " Roll Ret: " + str(rollRet) + " Short Cnt: " + str(numNeg) + " Long Cnt: " 
-                + str(numPos) + " Strt Tr: " + startTrainDate + " Strt Test: " + startTestDate + " sRollCnt: " + str(totalShort) + " lRollCnt: " +  str(totalLong))
+                #print(theTickers[i] + " Ret: " + str(theRet) + " Roll Ret: " + str(rollRet) + " Short Cnt: " + str(numNeg) + " Long Cnt: " 
+                #+ str(numPos) + " Strt Tr: " + startTrainDate + " Strt Test: " + startTestDate + " sRollCnt: " + str(totalShort) + " lRollCnt: " +  str(totalLong))
             except Exception, (e):
                 print(theTickers[i])         
             pass
@@ -165,6 +177,7 @@ for i in range(0,numTickers):
     pass      
 
 finalData.to_csv(thePath + baseTicker + "_finalData.csv",index=False)
+todayData.to_csv(thePath + baseTicker + "_todayData.csv",index=False)
 print("Sharpe: " + str(((np.mean(thePerf)/np.std(thePerf))*math.sqrt(252))))
 temp = np.where(np.asarray(thePerf) < 0)
 print("Sortino: " + str(np.mean(thePerf)/np.std(np.asarray(thePerf)[temp])*math.sqrt(252)))
