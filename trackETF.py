@@ -56,6 +56,7 @@ totalShort = 0
 rollLongRight = 0
 rollShortRight = 0
 testSize = .90
+priceThresh = 5.0
 
 theTickers = np.sort(np.array(mongoColl.distinct('ticker')))
 theTickers = [s.strip('$') for s in theTickers]
@@ -73,9 +74,10 @@ tempBase = tempBase.dropna()
 thePerf = list()
 finalData = pd.DataFrame()
 todayData = pd.DataFrame()
-for i in range(0,100):
+for i in range(0,numTickers):
     try:
         tempData = web.DataReader(theTickers[i],"yahoo",start,end)
+        lastPrice = tempData['Close'][len(tempData)-1:len(tempData)][0]
         tempData['retClose'] = np.log(tempData['Adj Close'].astype(float)) - np.log(tempData['Adj Close'].astype(float).shift(1))
         tempData['ret'] = np.log(tempData['Close'].astype(float)) - np.log(tempData['Open'].astype(float))
         tempData = tempData.dropna()
@@ -90,9 +92,8 @@ for i in range(0,100):
         theCor = pearsonr(tempData['retBase'],tempData['retClose'])        
         
         gCause = ts.grangercausalitytests(tempData[['retClose','retBase']],1,verbose=False)[1][0]['params_ftest'][1] #second position --> first position
-
         #if(theCor[1] <= statSig and (theCor[0] >= corThresh or theCor[0] <= -corThresh) and gCause <= statSig):
-        if(gCause <= statSig):
+        if(gCause <= statSig and lastPrice >= priceThresh):
             tempData['rollMean'] = tempData['ret'].rolling(window=theWindow).mean()
             tempData['rollMeanBase'] = tempData['retBase'].rolling(window=theWindow).mean()
             tempData['rollCor'] = pd.rolling_corr(tempData['retBase'],tempData['ret'],theWindow) #rollCorrelation
