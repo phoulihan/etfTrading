@@ -39,6 +39,8 @@ mongoColl = mongoDb['crspData']
 
 style.use('ggplot')
 
+thePath = 'C:/Users/xilin/gitHubCode/etfTrading/'
+
 start = datetime.datetime(2010,1,1)
 end = datetime.datetime(2016,7,10)
 
@@ -46,17 +48,23 @@ statSig = .05
 postThresh = .8
 theWindow = 10
 rollRet = float(0)
+totalLong = 0
+totalShort = 0
+rollLongRight = 0
+rollShortRight = 0
 
 theTickers = np.sort(np.array(mongoColl.distinct('ticker')))
 theTickers = [s.strip('$') for s in theTickers]
 numTickers = len(theTickers)
 
-tempBase = web.DataReader("GLD","yahoo",start,end)
+baseTicker = "GLD"
+tempBase = web.DataReader(baseTicker,"yahoo",start,end)
 tempBase['retBase'] = np.log(tempBase['Adj Close'].astype(float)) - np.log(tempBase['Adj Close'].astype(float).shift(1))
 tempBase.reindex()
 
 thePerf = list()
-for i in range(0,numTickers):
+finalData = pd.DataFrame()
+for i in range(0,20):
     try:
         temp = web.DataReader(theTickers[i],"yahoo",start,end)
         temp['ret'] = np.log(temp['Adj Close'].astype(float)) - np.log(temp['Adj Close'].astype(float).shift(1))
@@ -84,8 +92,6 @@ for i in range(0,numTickers):
             try:
                 y = tempData['ret'][1:theLen] #next day assset return
                 X = tempData[['retBase','theDiff','rollCor','rollMeanBase','rollMean']][0:theLen-1] #event day features
-                #y = tempData['ret'][1:theLen] #same day assset return
-                #X = tempData[['retBase','theDiff','rollCor','rollMeanBase','rollMean']][1:theLen] #same day features
             
                 trainY = y[0:(trainLen-1)]
                 testY = y[trainLen:theLen]
@@ -111,19 +117,25 @@ for i in range(0,numTickers):
                 theShorts = np.where(postProbs[:,neg] >= postThresh)[0] #SHORT POSITIONS
                 
                 numPos = len(theLongs)
+                totalLong = totalLong + numPos
                 numNeg = len(theShorts)
+                totalShort = totalShort + numNeg
                 
                 corLong = np.where(np.sign(testY[theLongs]) == 1)[0]
                 incLong = np.where(np.sign(testY[theLongs]) == -1)[0]
                 longRet = float(np.sum(testY[corLong])) - float(np.sum(testY[incLong])) 
+                rollLongRight = rollLongRight + len(corLong)
                 
                 corShort = np.where(np.sign(testY[theShorts]) == -1)[0]
                 incShort = np.where(np.sign(testY[theShorts]) == 1)[0]
                 shortRet = -float(np.sum(testY[corShort])) + float(np.sum(testY[incShort])) 
+                rollShortRight = rollShortRight + len(corShort)
                 
                 theRet = round(float(longRet) + float(shortRet),8)
                 rollRet = round(float(rollRet) + float(theRet),8)
                 thePerf.append(theRet)
+                tempStr = pd.DataFrame({'ticker': [theTickers[i]],'theRet': [theRet],'rollret': [rollRet],'RollShortTrd': [totalShort],'RollLongTrd': [totalLong],'RollLongRight': [rollLongRight],'RollShortRight': [rollShortRight]})
+                finalData = finalData.append(tempStr)
                 print(theTickers[i] + " Return: " + str(theRet) + " Rolling Return: " + str(rollRet) + " Short Cnt: " + str(numNeg) + " Long Cnt: " + str(numPos))
             except Exception, (e):
                 print(theTickers[i])         
@@ -132,6 +144,7 @@ for i in range(0,numTickers):
         print(theTickers[i])         
     pass      
 
+finalData.to_csv(thePath + baseTicker + "_finalData.csv",index=False)
 print("Sharpe: " + str(((np.mean(thePerf)/np.std(thePerf))*math.sqrt(252))))
 temp = np.where(np.asarray(thePerf) < 0)
 print("Sortino: " + str(np.mean(thePerf)/np.std(np.asarray(thePerf)[temp])*math.sqrt(252)))
