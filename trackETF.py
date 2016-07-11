@@ -91,7 +91,7 @@ for i in range(0,numTickers):
         #theCor = pearsonr(tempData['retBase'],tempData['retClose'])        
         
         gCause = ts.grangercausalitytests(tempData[['retClose','retBase']],1,verbose=False) #second position --> first position
-        gCause = gCause[1][0]['params_ftest'][1]
+        gCause = gCause[1][0]['params_ftest'][1] #pull p-value for lag 1 base --> roll equity
         
         #if(theCor[1] <= statSig and (theCor[0] >= corThresh or theCor[0] <= -corThresh)):
         if(gCause <= statSig):
