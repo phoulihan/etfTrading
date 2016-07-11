@@ -55,7 +55,7 @@ totalLong = 0
 totalShort = 0
 rollLongRight = 0
 rollShortRight = 0
-testSize = .10
+testSize = .97
 
 theTickers = np.sort(np.array(mongoColl.distinct('ticker')))
 theTickers = [s.strip('$') for s in theTickers]
@@ -90,9 +90,8 @@ for i in range(0,numTickers):
         
         #theCor = pearsonr(tempData['retBase'],tempData['retClose'])        
         
-        gCause = ts.grangercausalitytests(tempData[['retClose','retBase']],1,verbose=False) #second position --> first position
-        gCause = gCause[1][0]['params_ftest'][1] #pull p-value for lag 1 base --> roll equity
-        
+        gCause = ts.grangercausalitytests(tempData[['retClose','retBase']],1,verbose=False)[1][0]['params_ftest'][1] #second position --> first position
+
         #if(theCor[1] <= statSig and (theCor[0] >= corThresh or theCor[0] <= -corThresh)):
         if(gCause <= statSig):
             tempData['rollMean'] = tempData['ret'].rolling(window=theWindow).mean()
@@ -100,16 +99,20 @@ for i in range(0,numTickers):
             tempData['rollCor'] = pd.rolling_corr(tempData['retBase'],tempData['ret'],theWindow) #rollCorrelation
             tempData = tempData.dropna()
             
-            testLen = int(round(testSize*theLen,0))
-            trainLen = int(theLen  - testLen)
+            trainLen = int(round(testSize*theLen,0))
+            print(trainLen)
+            testLen = int(theLen  - trainLen)
+            print(testLen)
             try:
                 y = tempData['ret'][1:theLen] #next day assset return
                 X = tempData[['retBase','rollCor','rollMeanBase','rollMean','diff']][0:theLen-1] #event day features
-            
-                trainY = y[0:(trainLen-1)]
-                testY = y[trainLen:theLen]
                 
-                trainX = X[0:(trainLen-1)]
+                trainY = y[0:trainLen]
+                testY = y[trainLen:theLen]
+                print(trainY)
+                print(testY)
+                
+                trainX = X[0:trainLen]
                 testX = X[trainLen:theLen]
             
                 model = RandomForestClassifier(n_estimators=25,random_state=42)
