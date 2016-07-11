@@ -6,7 +6,7 @@ Created on Sun Jul 10 08:55:19 2016
 """
 import math
 import pandas as pd
-import datetime
+import datetime, dateutil.parser
 import numpy as np
 import pandas_datareader.data as web
 import statsmodels.tsa.stattools as ts
@@ -55,7 +55,7 @@ totalLong = 0
 totalShort = 0
 rollLongRight = 0
 rollShortRight = 0
-testSize = .97
+testSize = .90
 
 theTickers = np.sort(np.array(mongoColl.distinct('ticker')))
 theTickers = [s.strip('$') for s in theTickers]
@@ -111,6 +111,14 @@ for i in range(0,numTickers):
                 trainX = X[0:trainLen]
                 testX = X[trainLen:theLen]
             
+                tDate = list(trainY.index.values)
+                startTrainDate = str(tDate[0])[:10]
+                endTrainDate = str(tDate[len(tDate)-1])[:10]
+                
+                tDate = list(testY.index.values)
+                startTestDate = str(tDate[0])[:10]
+                endTestDate = str(tDate[len(tDate)-1])[:10]
+
                 model = RandomForestClassifier(n_estimators=25,random_state=42)
                 #model = AdaBoostClassifier(DecisionTreeClassifier(max_depth=1),n_estimators=300,learning_rate=1,algorithm="SAMME")
                 #model = linear_model.LogisticRegression(C=1e5)
@@ -144,9 +152,11 @@ for i in range(0,numTickers):
                 theRet = round(float(longRet) - float(shortRet),8)
                 rollRet = round(float(rollRet) + float(theRet),8)
                 thePerf.append(theRet)
-                tempStr = pd.DataFrame({'ticker': [theTickers[i]],'theRet': [theRet],'rollret': [rollRet],'RollShortTrd': [totalShort],'RollLongTrd': [totalLong],'RollLongRight': [rollLongRight],'RollShortRight': [rollShortRight]})
+                tempStr = pd.DataFrame({'ticker': [theTickers[i]],'theRet': [theRet],'rollret': [rollRet],'RollShortTrd': [totalShort],'RollLongTrd': [totalLong],
+                'RollLongRight': [rollLongRight],'RollShortRight': [rollShortRight],'startTrainDate': [startTrainDate],'startTestDate': [startTestDate]})
                 finalData = finalData.append(tempStr)
-                print(theTickers[i] + " Return: " + str(theRet) + " Rolling Return: " + str(rollRet) + " Short Cnt: " + str(numNeg) + " Long Cnt: " + str(numPos))
+                print(theTickers[i] + " Return: " + str(theRet) + " Rolling Return: " + str(rollRet) + " Short Cnt: " + str(numNeg) + " Long Cnt: " 
+                + str(numPos) + " Start Train: " + startTrainDate + " Start Test: " + startTestDate)
             except Exception, (e):
                 print(theTickers[i])         
             pass
